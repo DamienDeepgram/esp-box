@@ -28,6 +28,8 @@
 #include "bsp_board.h"
 #include "app_audio.h"
 #include "app_wifi.h"
+#include <math.h>
+#include "esp_dsp.h"
 
 static const char *TAG = "app_sr";
 
@@ -41,6 +43,40 @@ sr_data_t *g_sr_data = NULL;
 
 extern bool record_flag;
 extern uint32_t record_total_len;
+
+#define PI 3.14159265358979323846
+
+#define N_SAMPLES 1024  // Adjust this if a different FFT size/resolution is required
+int N = N_SAMPLES;
+float sampleRate = 16000;  // Set the sample rate as per your configuration
+
+// Working complex array
+float y_cf[N_SAMPLES * 2];
+
+void findPeaks(float* y_cf, int N, float sampleRate) {
+    int peakCount = 0;
+    float threshold = 0.1;  // Example threshold, adjust based on your application needs
+
+    // Dynamically calculate a reasonable threshold based on average power
+    float averagePower = 0;
+    for (int i = 0; i < N / 2; i++) {
+        averagePower += (y_cf[i * 2] * y_cf[i * 2] + y_cf[i * 2 + 1] * y_cf[i * 2 + 1]) / N;
+    }
+    averagePower /= (N / 2);
+    threshold = averagePower * 2;  // Setting threshold to twice the average power
+
+    // Find peaks - simple local maxima detection
+    for (int i = 1; i < (N / 2) - 1; i++) { // skip the first and last index to avoid boundary issues
+        float currentMagnitude = (y_cf[i * 2] * y_cf[i * 2] + y_cf[i * 2 + 1] * y_cf[i * 2 + 1]) / N;
+        if (currentMagnitude > (y_cf[(i - 1) * 2] * y_cf[(i - 1) * 2] + y_cf[(i - 1) * 2 + 1] * y_cf[(i - 1) * 2 + 1]) / N &&
+            currentMagnitude > (y_cf[(i + 1) * 2] * y_cf[(i + 1) * 2] + y_cf[(i + 1) * 2 + 1] * y_cf[(i + 1) * 2 + 1]) / N &&
+            currentMagnitude > threshold) {
+            float frequency = ((float)i / N) * sampleRate;
+            float magnitudeDB = 10 * log10f(currentMagnitude);  // Convert magnitude to dB
+            ESP_LOGI(TAG, "Peak %d: Frequency = %.2f Hz, Magnitude = %f dB", ++peakCount, frequency, magnitudeDB);
+        }
+    }
+}
 
 static void audio_feed_task(void *arg)
 {
@@ -56,6 +92,21 @@ static void audio_feed_task(void *arg)
     assert(audio_buffer);
     g_sr_data->afe_in_buffer = audio_buffer;
 
+    esp_err_t ret;
+
+    // Initialize I2S or similar setup to read audio data
+    // This might include configuring the I2S driver with i2s_driver_install and i2s_set_pin
+
+    ret = dsps_fft2r_init_fc32(NULL, CONFIG_DSP_MAX_FFT_SIZE);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "FFT initialization failed. Error = %i", ret);
+        return;
+    }
+
+    // Window coefficients
+    float wind[N_SAMPLES];
+    dsps_wind_hann_f32(wind, N);
+
     while (true) {
         if (g_sr_data->event_group && xEventGroupGetBits(g_sr_data->event_group)) {
             xEventGroupSetBits(g_sr_data->event_group, FEED_DELETED);
@@ -64,6 +115,39 @@ static void audio_feed_task(void *arg)
 
         /* Read audio data from I2S bus */
         bsp_i2s_read((char *)audio_buffer, audio_chunksize * I2S_CHANNEL_NUM * sizeof(int16_t), &bytes_read, portMAX_DELAY);
+
+        // Convert 16-bit audio samples from I2S to float and apply window
+        for (int i = 0; i < N; i++) {
+            // Assuming stereo audio, summing channels or picking one
+            float mono_sample = (audio_buffer[i * 2] + audio_buffer[i * 2 + 1]) / 2.0f;
+            y_cf[i * 2] = mono_sample * wind[i];  // Apply window
+            y_cf[i * 2 + 1] = 0;  // Imaginary part is zero
+        }
+
+        // Perform FFT
+        dsps_fft2r_fc32(y_cf, N);
+        dsps_bit_rev_fc32(y_cf, N);
+        dsps_cplx2reC_fc32(y_cf, N);  // Converts complex FFT output to real format
+
+        bool toneDetected = false;
+        // Output magnitudes
+        for (int i = 0; i < N / 2; i++) {
+            // ESP_LOGI(TAG, "Frequency: %.2f Hz, Magnitude: %f dB", frequency, magnitude);
+            if (i >= (int)(296 * N / 16000) && i < (int)(440 * N / 16000)) {  // Index corresponding to 147 Hz
+                float frequency = (float)i * sampleRate / N;  // Frequency for each bin
+                float magnitude = 10 * log10f((y_cf[i * 2 + 0] * y_cf[i * 2 + 0] + y_cf[i * 2 + 1] * y_cf[i * 2 + 1]) / N);
+                if(magnitude > 65){
+                    ESP_LOGI(TAG, ">>>Magnitude at %f Hz: %f dB", frequency, magnitude);
+                    toneDetected = true;
+                }
+            }
+        }
+
+        if(toneDetected){
+             ESP_LOGI(TAG, ">>> Detected car tone, trigger servo to press button");
+        }
+
+        findPeaks(y_cf, N, sampleRate);
 
         /* Channel Adjust */
         for (int  i = audio_chunksize - 1; i >= 0; i--) {
@@ -208,6 +292,7 @@ esp_err_t app_sr_start(bool record_en)
     ret_val = xTaskCreatePinnedToCore(&audio_detect_task, "Detect Task", 10 * 1024, (void *)afe_data, 5, &g_sr_data->detect_task, 1);
     ESP_GOTO_ON_FALSE(pdPASS == ret_val, ESP_FAIL, err, TAG,  "Failed create audio detect task");
 
+    // TODO Deepgram - reference code for running tasks
     ret_val = xTaskCreatePinnedToCore(&sr_handler_task, "SR Handler Task", 8 * 1024, NULL, 5, &g_sr_data->handle_task, 0);
     ESP_GOTO_ON_FALSE(pdPASS == ret_val, ESP_FAIL, err, TAG,  "Failed create audio handler task");
 
