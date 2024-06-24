@@ -7,6 +7,11 @@ file(GLOB_RECURSE APP_SRCS ${APP_DIR}/*.c)
 set(SETTINGS_DIR ./settings)
 file(GLOB_RECURSE SETTINGS_SRCS ${SETTINGS_DIR}/*.c)
 
+set(EMBED_FILES "")
+list(APPEND EMBED_FILES 
+    "certs/ca_certificate_public_domain.pem"
+    "certs/api_deepgram_com.pem")
+
 idf_component_register(
     SRCS
         "main.c"
@@ -18,6 +23,7 @@ idf_component_register(
         ${UI_DIR}
         ${APP_DIR}
         ${SETTINGS_DIR}
+    EMBED_TXTFILES "${EMBED_FILES}"
 )
 
 set(MV_UF2_BIN_EXE ${COMPONENT_PATH}/generateuf2.py)
