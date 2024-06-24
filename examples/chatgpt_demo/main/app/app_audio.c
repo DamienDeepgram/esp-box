@@ -265,6 +265,7 @@ esp_err_t audio_play_task(void *filepath)
         if (len <= 0) {
             break;
         } else if (len > 0) {
+            // TODO play streaming audio
             bsp_i2s_write(buffer, len, &cnt, portMAX_DELAY);
             total_cnt += cnt;
         }

@@ -57,6 +57,7 @@ typedef struct {
     int16_t *afe_out_buffer;
     uint8_t cmd_num;
     TaskHandle_t feed_task;
+    TaskHandle_t feed_websocket_task;
     TaskHandle_t detect_task;
     TaskHandle_t handle_task;
     QueueHandle_t result_que;

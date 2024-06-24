@@ -10,7 +10,8 @@ file(GLOB_RECURSE SETTINGS_SRCS ${SETTINGS_DIR}/*.c)
 set(EMBED_FILES "")
 list(APPEND EMBED_FILES 
     "certs/ca_certificate_public_domain.pem"
-    "certs/api_deepgram_com.pem")
+    "certs/api_deepgram_com.pem"
+    "certs/sts_sandbox_deepgram_com.pem")
 
 idf_component_register(
     SRCS
