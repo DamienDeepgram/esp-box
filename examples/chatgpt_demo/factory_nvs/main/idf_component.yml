@@ -1,5 +1,6 @@
 ## IDF Component Manager Manifest File
 dependencies:
+  lvgl/lvgl: "^8.3.4"
   espressif/esp_tinyuf2:
     version: "0.2.*"
   # espressif/esp-box: "~2.2.0"

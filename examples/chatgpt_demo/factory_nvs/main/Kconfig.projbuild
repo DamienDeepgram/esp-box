@@ -20,5 +20,15 @@ menu "Example Configuration"
         default "https://api.openai.com/v1/"
         help
             Base URL for OpenAI API
+    config DEEPGRAM_API_KEY
+        string "Deepgram Key"
+        default "xxx"
+        help
+            Deepgram api key for the example to use.
+    config DEEPGRAM_URL
+        string "Deepgram Base URL"
+        default "api.deepgram.com/v1/"
+        help
+            Base URL for Deepgram API
 
 endmenu

@@ -48,6 +48,8 @@ void app_main(void)
     char password[PASSWORD_SIZE] = {0};
     char key[KEY_SIZE] = {0};
     char url[URL_SIZE] = {0};
+    char deepgram_key[KEY_SIZE] = {0};
+    char deepgram_url[URL_SIZE] = {0};
 
     s_event_group = xEventGroupCreate();
 
@@ -101,6 +103,26 @@ void app_main(void)
             ESP_LOGI(TAG, "no base url, give a init value to key");
         } else {
             ESP_LOGI(TAG, "stored base url:%s", url);
+        }
+
+        buf_len_long = sizeof(deepgram_key);
+        err = nvs_get_str(my_handle, "Deepgram_key", deepgram_key, &buf_len_long);
+        if (err != ESP_OK || buf_len_long == 0) {
+            ESP_ERROR_CHECK(nvs_set_str(my_handle, "Deepgram_key", CONFIG_DEEPGRAM_API_KEY));
+            ESP_ERROR_CHECK(nvs_commit(my_handle));
+            ESP_LOGI(TAG, "no Deepgram key, give a init value to deepgram_key");
+        } else {
+            ESP_LOGI(TAG, "stored Deepgram key:%s", deepgram_key);
+        }
+
+        buf_len_long = sizeof(deepgram_url);
+        err = nvs_get_str(my_handle, "Deepgram_url", deepgram_url, &buf_len_long);
+        if (err != ESP_OK || buf_len_long == 0) {
+            ESP_ERROR_CHECK(nvs_set_str(my_handle, "Deepgram_url", CONFIG_DEEPGRAM_URL));
+            ESP_ERROR_CHECK(nvs_commit(my_handle));
+            ESP_LOGI(TAG, "no Deepgram url, give a init value to key");
+        } else {
+            ESP_LOGI(TAG, "stored Deepgram url:%s", deepgram_url);
         }
     }
     nvs_close(my_handle);
@@ -175,6 +197,24 @@ void app_main(void)
                 return;
             }
             ESP_LOGD(TAG, "BASE url", url);
+
+            buf_len_long = sizeof(deepgram_key);
+            err = nvs_get_str(my_handle, "Deepgram_key", deepgram_key, &buf_len_long);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to read 'Deepgram_key' from NVS: %s", esp_err_to_name(err));
+                nvs_close(my_handle);
+                return;
+            }
+            ESP_LOGD(TAG, "Deepgram Key", deepgram_key);
+
+            buf_len_long = sizeof(deepgram_url);
+            err = nvs_get_str(my_handle, "Deepgram_url", deepgram_url, &buf_len_long);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to read 'Deepgram_url' from NVS: %s", esp_err_to_name(err));
+                nvs_close(my_handle);
+                return;
+            }
+            ESP_LOGD(TAG, "Deepgram url", deepgram_url);
             nvs_close(my_handle);
         }
 
