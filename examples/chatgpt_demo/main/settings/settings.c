@@ -74,12 +74,30 @@ esp_err_t settings_read_parameter_from_nvs(void)
         goto err;
     }
 
+    // Read Deepgram key
+    len = sizeof(g_sys_param.deepgram_key);
+    ret = nvs_get_str(my_handle, "Deepgram_key", g_sys_param.deepgram_key, &len);
+    if (ret != ESP_OK || len == 0) {
+        ESP_LOGI(TAG, "No Deepgram key found");
+        goto err;
+    }
+
+    // Read Deepgram url
+    len = sizeof(g_sys_param.deepgram_url);
+    ret = nvs_get_str(my_handle, "Deepgram_url", g_sys_param.deepgram_url, &len);
+    if (ret != ESP_OK || len == 0) {
+        ESP_LOGI(TAG, "No Deepgram Base url found");
+        goto err;
+    }
+
     nvs_close(my_handle);
 
     ESP_LOGI(TAG, "stored ssid:%s", g_sys_param.ssid);
     ESP_LOGI(TAG, "stored password:%s", g_sys_param.password);
-    ESP_LOGI(TAG, "stored OpenAI:%s", g_sys_param.key);
+    ESP_LOGI(TAG, "stored OpenAI Key:%s", g_sys_param.key);
     ESP_LOGI(TAG, "stored Base URL:%s", g_sys_param.url);
+    ESP_LOGI(TAG, "stored Deepgram Key:%s", g_sys_param.deepgram_key);
+    ESP_LOGI(TAG, "stored Deepgram Base URL:%s", g_sys_param.deepgram_url);
     return ESP_OK;
 
 err:

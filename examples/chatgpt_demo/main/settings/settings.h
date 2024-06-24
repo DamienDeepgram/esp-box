@@ -18,6 +18,8 @@ typedef struct {
     char password[PASSWORD_SIZE];     /* Password of target AP. */
     char key[KEY_SIZE];               /* OpenAI key. */
     char url[URL_SIZE];               /* OpenAI Base url. */
+    char deepgram_key[KEY_SIZE];      /* Deepgram key. */
+    char deepgram_url[URL_SIZE];      /* Deepgram Base url. */
 } sys_param_t;
 
 esp_err_t settings_factory_reset(void);
